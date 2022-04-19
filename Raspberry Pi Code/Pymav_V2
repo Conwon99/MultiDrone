@@ -1,0 +1,52 @@
+import serial
+from time import sleep
+from pymavlink import mavutil # for reading MAVLINK data
+
+print("started")
+
+Stepper_Rotated = False  # Initialise stepper as not rotated
+
+
+# Start a connection listening to a UDP port
+the_connection = mavutil.mavlink_connection('/dev/ttyS0',baud=57600) # TELEM2 on FC
+ser = serial.Serial(port='/dev/ttyUSB0', baudrate =9600)             # ESP32 USB
+
+
+
+# Wait for the first heartbeat 
+#   This sets the system and component ID of remote system for the link
+the_connection.wait_heartbeat()
+print("Heartbeat from system (system %u component %u)" % (the_connection.target_system, the_connection.target_component))
+
+print("end")
+
+while 1:
+    
+     
+    msg =the_connection.recv_match(blocking = True)
+    msg1 =the_connection.recv_match(type = 'RC_CHANNELS',blocking = True)
+    
+    chan_6 = the_connection.messages['RC_CHANNELS'].chan6_raw # SWB
+    
+    print(chan_6)
+
+
+    if chan_6 > 1500 and chan_6 <1520:   # SWA middle
+        
+        ser.write(b'Gripper/Open\n')     # okay to continously write 
+        print (b'Gripper/Open activated')
+        
+        if Stepper_Rotated==False:     # ensures only writes when switch flicked
+
+            Stepper_Rotated=True
+            ser.write(b'Stepper/Rotate\n')
+
+
+#         
+    else:
+        Stepper_Rotated==False
+
+    if chan_6 > 1900 and chan_6 < 2100: # SWA bottom
+        GripperOpen = False
+        ser.write(b'Gripper/Close\n')
+        print (b'Gripper Closed')
